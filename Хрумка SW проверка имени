@@ -1,0 +1,8 @@
+name = input( "Введите ник в SW по русски:" )
+
+
+if name == "Хрумка":
+    print("Засранец ты" + str(" " + name))
+else:
+    print("Кто ты? иди ты в жопу " )
+input()
