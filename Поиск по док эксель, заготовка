@@ -1,0 +1,32 @@
+import openpyxl
+
+# Открытие исходного файла Excel
+wb_src = openpyxl.load_workbook('source.xlsx')
+ws_src = wb_src['Лист1'] # Выберите нужный лист
+
+# Поиск строки по критерию
+criteria = 'Критерии поиска'
+row_index = ws_src.cell(row=1, column=1).value.find(criteria) + 1
+
+# Копирование найденных строк
+for row in ws_src.iter_rows(min_row=row_index, max_row=row_index):
+ for cell in row:
+ value = cell.value
+ if value is not None:
+ print(value)
+
+# Открытие нового файла Excel
+wb_dst = openpyxl.Workbook()
+ws_dst = wb_dst.active
+
+# Копирование найденных строк в новый файл
+for row in ws_src.iter_rows(min_row=row_index, max_row=row_index):
+ for cell in row:
+ value = cell.value
+ if value is not None:
+ ws_dst.cell(row=cell.row, column=cell.column).value = value
+
+# Сохранение нового файла Excel
+wb_dst.save('result.xlsx')
+
+№доделать 
