@@ -1,0 +1,29 @@
+Запустите Microsoft Visual Basic для приложений.
+В окне Visual Basic откройте код вашего листа и введите следующий код:
+Dim connection As Object
+Set connection = CreateObject("ADODB.Connection")
+connection.Provider = "Microsoft.ACE.OLEDB.12.0"
+connectionString = "Data Source=" & ThisWorkbook.Path & "\" & ThisWorkbook.Name & ";Extended Properties=""Excel 12.0 Xml;HDR=NO"""
+connection.Open
+
+Sub MyMethod()
+ Dim sql As String
+ Dim recordCount As Integer
+
+ sql = "SELECT * FROM [" & Sheet1$A1:E6 & "]"
+
+ Set result = connection.Execute(sql)
+
+ Do
+ Debug.Print result(0); ";" & result(1) & ";" & result(2) & ";" & result(3) & ";" & result(4)
+ result.MoveNext
+ recordCount = recordCount + 1
+ Loop Until result.EOF
+
+ Debug.Print vbNewLine & recordCount & " results found."
+End Sub
+Сохраните изменения и закройте окно Visual Basic.
+Откройте файл Excel с данными, которые вы хотите обработать.
+Введите запрос в ячейку A1 и сохраните файл.
+Запустите скрипт, выбрав «Отладка» в меню «Сервис».
+Теперь при запуске скрипта будет выполнен запрос, указанный в ячейке A1, и результаты будут выведены в окне Immediate Window.
