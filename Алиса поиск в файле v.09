@@ -1,7 +1,7 @@
 import os
 
 file_path = 'путь_к_исходному_файлу'
-code_word = 'кодовое_слово'
+code_word = input( "Введите запрос:" ) # проверить
 new_file_path = 'путь_к_новому_файлу'
 
 with open(file_path, 'r', encoding='utf-8') as file:
