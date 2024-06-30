@@ -1,0 +1,24 @@
+import openpyxl
+
+# Импортируем модуль openpyxl
+wb1 = openpyxl.load_workbook('source.xlsx')
+ws1 = wb1.worksheets[0]
+
+# Открываем исходный файл Excel и первый лист
+wb2 = openpyxl.load_workbook('destination.xlsx')
+ws2 = wb2.active
+
+# Рассчитываем общее количество строк и столбцов в исходном файле Excel
+mr = ws1.max_row
+mc = ws1.max_column
+
+# Копируем значения ячеек из исходного файла Excel в целевой файл
+for i in range(1, mr + 1):
+ for j in range(1, mc + 1):
+ # Читаем значение ячейки из исходного файла
+ c = ws1.cell(row=i, column=j)
+ # Записываем прочитанное значение в ячейку целевого файла
+ ws2.cell(row=i, column=j).value = c.value
+
+# Сохраняем целевой файл Excel
+wb2.save('destination.xlsx')
