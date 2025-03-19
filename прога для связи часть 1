@@ -1,0 +1,238 @@
+Tkinter для создания графического интерфейса.
+
+Socket для сетевого взаимодействия между пользователями.
+
+Qiskit для квантовой части.
+
+cryptography для шифрования данных.
+
+Серверная часть (Боб):
+import socket
+import threading
+from qiskit import QuantumCircuit, Aer, execute
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
+import random
+import tkinter as tk
+from tkinter import scrolledtext
+
+# Функция для создания запутанных пар
+def create_entangled_pairs(num_pairs):
+    qc = QuantumCircuit(2 * num_pairs, 2 * num_pairs)
+    for i in range(0, 2 * num_pairs, 2):
+        qc.h(i)  # Применяем вентиль Адамара к первому кубиту
+        qc.cx(i, i + 1)  # Применяем вентиль CNOT для создания запутанности
+    return qc
+
+# Функция для измерения кубитов
+def measure_qubits(qc, num_pairs, bases):
+    for i in range(0, 2 * num_pairs, 2):
+        if bases[i // 2] == 1:  # Если базис — диагональный
+            qc.h(i + 1)
+        qc.measure(i + 1, i + 1)  # Боб измеряет свой кубит
+    return qc
+
+# Функция для расшифровки данных
+def decrypt_data(key, ciphertext):
+    key_bytes = int(key, 2).to_bytes((len(key) + 7) // 8, byteorder='big')
+    iv = ciphertext[:16]  # Извлекаем IV
+    ciphertext = ciphertext[16:]  # Извлекаем зашифрованные данные
+    cipher = Cipher(algorithms.AES(key_bytes), modes.CFB(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    return plaintext.decode()
+
+# Обработка подключения клиента
+def handle_client(conn, addr):
+    num_pairs = 128  # Количество запутанных пар (длина ключа)
+
+    # Получаем базисы Алисы
+    alice_bases = list(map(int, conn.recv(1024).decode().split(',')))
+    log(f"Базисы Алисы получены: {alice_bases}")
+
+    # Создаём запутанные пары
+    qc = create_entangled_pairs(num_pairs)
+
+    # Боб выбирает случайные базисы
+    bob_bases = [random.choice([0, 1]) for _ in range(num_pairs)]
+    log(f"Базисы Боба: {bob_bases}")
+
+    # Измеряем кубиты
+    qc = measure_qubits(qc, num_pairs, bob_bases)
+
+    # Запускаем схему на симуляторе
+    simulator = Aer.get_backend('qasm_simulator')
+    result = execute(qc, backend=simulator, shots=1).result()
+    counts = result.get_counts(qc)
+    results = list(counts.keys())[0]  # Получаем результаты измерений
+
+    # Генерируем ключ
+    key = []
+    for i in range(num_pairs):
+        if alice_bases[i] == bob_bases[i]:  # Если базисы совпали
+            key.append(results[i * 2 + 1])  # Используем результат Боба
+    key = "".join(key)
+    log(f"Сгенерированный ключ: {key}")
+
+    # Получаем зашифрованное сообщение
+    ciphertext = conn.recv(1024)
+    log("Зашифрованные данные получены.")
+
+    # Расшифровываем сообщение
+    decrypted_text = decrypt_data(key, ciphertext)
+    log(f"Расшифрованные данные: {decrypted_text}")
+
+    conn.close()
+
+# Запуск сервера
+def start_server():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('0.0.0.0', int(port_entry.get())))
+    server_socket.listen(1)
+    log("Сервер запущен. Ожидание подключения Алисы...")
+    conn, addr = server_socket.accept()
+    log(f"Алиса подключена: {addr}")
+    threading.Thread(target=handle_client, args=(conn, addr)).start()
+
+# Логирование в интерфейсе
+def log(message):
+    log_area.insert(tk.END, message + "\n")
+    log_area.yview(tk.END)
+
+# Графический интерфейс
+root = tk.Tk()
+root.title("Боб (Сервер)")
+
+tk.Label(root, text="Порт:").grid(row=0, column=0)
+port_entry = tk.Entry(root)
+port_entry.grid(row=0, column=1)
+port_entry.insert(0, "12345")
+
+start_button = tk.Button(root, text="Запустить сервер", command=start_server)
+start_button.grid(row=1, column=0, columnspan=2)
+
+log_area = scrolledtext.ScrolledText(root, width=50, height=20)
+log_area.grid(row=2, column=0, columnspan=2)
+
+root.mainloop()
+
+Клиентская часть (Алиса):
+import socket
+from qiskit import QuantumCircuit, Aer, execute
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
+import random
+import tkinter as tk
+from tkinter import scrolledtext
+
+# Функция для создания запутанных пар
+def create_entangled_pairs(num_pairs):
+    qc = QuantumCircuit(2 * num_pairs, 2 * num_pairs)
+    for i in range(0, 2 * num_pairs, 2):
+        qc.h(i)  # Применяем вентиль Адамара к первому кубиту
+        qc.cx(i, i + 1)  # Применяем вентиль CNOT для создания запутанности
+    return qc
+
+# Функция для измерения кубитов
+def measure_qubits(qc, num_pairs, bases):
+    for i in range(0, 2 * num_pairs, 2):
+        if bases[i // 2] == 1:  # Если базис — диагональный
+            qc.h(i)
+        qc.measure(i, i)  # Алиса измеряет свой кубит
+    return qc
+
+# Функция для шифрования данных
+def encrypt_data(key, plaintext):
+    key_bytes = int(key, 2).to_bytes((len(key) + 7) // 8, byteorder='big')
+    iv = os.urandom(16)  # Генерируем случайный вектор инициализации
+    cipher = Cipher(algorithms.AES(key_bytes), modes.CFB(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(plaintext.encode()) + encryptor.finalize()
+    return iv + ciphertext  # Возвращаем IV + зашифрованные данные
+
+# Подключение к серверу и отправка данных
+def connect_to_server():
+    num_pairs = 128  # Количество запутанных пар (длина ключа)
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((ip_entry.get(), int(port_entry.get())))
+
+    # Алиса выбирает случайные базисы
+    alice_bases = [random.choice([0, 1]) for _ in range(num_pairs)]
+    log(f"Базисы Алисы: {alice_bases}")
+
+    # Отправляем базисы Алисы Бобу
+    client_socket.send(",".join(map(str, alice_bases)).encode())
+
+    # Создаём запутанные пары
+    qc = create_entangled_pairs(num_pairs)
+
+    # Измеряем кубиты
+    qc = measure_qubits(qc, num_pairs, alice_bases)
+
+    # Запускаем схему на симуляторе
+    simulator = Aer.get_backend('qasm_simulator')
+    result = execute(qc, backend=simulator, shots=1).result()
+    counts = result.get_counts(qc)
+    results = list(counts.keys())[0]  # Получаем результаты измерений
+
+    # Генерируем ключ
+    key = []
+    for i in range(num_pairs):
+        if alice_bases[i] == 0:  # Используем только те биты, где базисы совпали
+            key.append(results[i * 2])  # Используем результат Алисы
+    key = "".join(key)
+    log(f"Сгенерированный ключ: {key}")
+
+    # Шифруем сообщение
+    plaintext = message_entry.get()
+    ciphertext = encrypt_data(key, plaintext)
+    log(f"Зашифрованные данные: {ciphertext}")
+
+    # Отправляем зашифрованные данные Бобу
+    client_socket.send(ciphertext)
+
+    client_socket.close()
+
+# Логирование в интерфейсе
+def log(message):
+    log_area.insert(tk.END, message + "\n")
+    log_area.yview(tk.END)
+
+# Графический интерфейс
+root = tk.Tk()
+root.title("Алиса (Клиент)")
+
+tk.Label(root, text="IP:").grid(row=0, column=0)
+ip_entry = tk.Entry(root)
+ip_entry.grid(row=0, column=1)
+ip_entry.insert(0, "127.0.0.1")
+
+tk.Label(root, text="Порт:").grid(row=1, column=0)
+port_entry = tk.Entry(root)
+port_entry.grid(row=1, column=1)
+port_entry.insert(0, "12345")
+
+tk.Label(root, text="Сообщение:").grid(row=2, column=0)
+message_entry = tk.Entry(root)
+message_entry.grid(row=2, column=1)
+
+connect_button = tk.Button(root, text="Подключиться и отправить", command=connect_to_server)
+connect_button.grid(row=3, column=0, columnspan=2)
+
+log_area = scrolledtext.ScrolledText(root, width=50, height=20)
+log_area.grid(row=4, column=0, columnspan=2)
+
+root.mainloop()
+
+Как это работает?
+Боб запускает сервер и ждёт подключения Алисы.
+
+Алиса подключается к серверу, вводит сообщение и отправляет его.
+
+Боб и Алиса генерируют ключ с использованием квантовой запутанности.
+
+Алиса шифрует сообщение и отправляет его Бобу.
+
+Боб расшифровывает сообщение с использованием общего ключа.
